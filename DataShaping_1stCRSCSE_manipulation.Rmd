@@ -1,0 +1,626 @@
+---
+title: "2020FTIC_1st Fall completed"
+author: "JS"
+date: "12/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/Data_IR_2020")
+```
+
+## Prediction 1st Fall below / aAbove GPA 2.77 for FTIC 2020
+
+This is an prediction accuracy for FTIC 2020 1st Fall GPA document.
+
+This document is only for the  **FTIC 2020 1st Fall** and included APR and Average GPA Rate and Accuracy by Tiers.
+
+This documents was updated Jan 12, 2021.
+
+```{r}
+library(readxl)
+CSE_enr2020<- read_excel("C:/Users/jsparks3/Downloads/CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+    sheet = "CSE Analysis Data 2020 Cohort")
+
+CSE_crs1stTerm2020 <- read_excel("C:/Users/jsparks3/Downloads/CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+     sheet = "CSE Analysis Courses 2020 Cohor")
+
+CSE_crs2ndTerm2020 <- read_excel("C:/Users/jsparks3/Downloads/CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+    sheet = "Registered Spring courses")
+
+## 2015 to 2020 enr
+library(readr)
+V1CSE_ALL_ENR_up2020 <- read_csv("V1CSE_ALL_ENR_up2020.csv", 
+    col_types = cols(X1 = col_skip()))
+
+# 01/12/2021 updated data 4th time
+library(readxl)
+CSE_2020_Cohort_01_12 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/FTIC 2021 Data/CSE Analysis Full Data 2020 Cohort 01-12.xlsx", 
+    sheet = "Full Data")
+
+SpringCRS_2020_Cohort_01_12 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/FTIC 2021 Data/CSE Analysis Full Data 2020 Cohort 01-12.xlsx", 
+     sheet = "Courses") %>% filter(DEMO_TIME_FRAME==202101)
+
+FallCRS_2020_Cohort_01_12 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/FTIC 2021 Data/CSE Analysis Full Data 2020 Cohort 01-12.xlsx", 
+     sheet = "Courses") %>% filter(DEMO_TIME_FRAME==202008)
+
+```
+
+### FTIC 2020 Size
+```{r}
+length(CSE_enr2020$UNIV_ROW_ID)
+xtabs(~CSE_enr2020$COHORT_YEAR + CSE_enr2020$ENTRY_COLLEGE)
+
+length(CSE_2020_Cohort_01_12$UNIV_ROW_ID)
+xtabs(~CSE_2020_Cohort_01_12$COHORT_YEAR + CSE_2020_Cohort_01_12$ENTRY_COLLEGE)
+
+```
+### NAs and mean GPA Histogram
+```{r}
+sum(is.na(CSE_enr2020$GPA)) #31
+CSE_enr2020[is.na(CSE_enr2020$GPA),] # all had Ws
+CSE_enr2020[which(is.na(CSE_enr2020$GPA)),"GPA"] <- 0 # all withdrawn for GPA == 0 1029/31
+CSE_crs1stTerm2020[CSE_crs1stTerm2020$UNIV_ROW_ID==970576675,]
+hist(CSE_enr2020$GPA)
+mean(CSE_enr2020$GPA, na.rm = T)
+
+#updated 1/12/21
+CSE_2020_Cohort_01_12[which(is.na(CSE_2020_Cohort_01_12$GPA)),"GPA"] <- 0
+mean(CSE_2020_Cohort_01_12$GPA, na.rm = T)
+
+```
+
+
+### Proportion of GPA2.77 and APR 2.00
+```{r}
+library(dplyr)
+CSE_enr20201 <- CSE_enr2020 %>% mutate(Act_GPAAPR1stTerm=ifelse(GPA >=2.77,"Above2.77","Belowe2.77")) %>% 
+  mutate(APR1stTerm=ifelse(GPA >=2.00,"Above2.00","Belowe2.00"))
+xtabs(~CSE_enr20201$Act_GPAAPR1stTerm)
+764/1029 #0.74
+xtabs(~CSE_enr20201$APR1stTerm)
+886/1029 #0.86
+```
+
+### FTIC size for each dataset
+```{r}
+library(readr)
+CSEdata2020 <- read_csv("Data_IR/CSEdata2020.csv")
+CRSCSEData <- read_csv("Data_IR/CRSCSEData.csv")
+updated1CSEdata <- read_csv("Data_IR/updated1CSEdata.csv")
+# CSE data
+length(CSEdata2020$UNIV_ROW_ID)
+library(readxl)
+Prediction_NBC_By_Tier_FTIC2020_UWF <- read_excel("Data_IR/output/prediction-results/Prediction_NBC_By_Tier_FTIC2020_UWF.xlsx")
+# for prediction
+length(Prediction_NBC_By_Tier_FTIC2020_UWF$UNIV_ROW_ID)
+xtabs(~Prediction_NBC_By_Tier_FTIC2020_UWF$APPLICANT_TIER)
+```
+
+Prediction and Actural data table
+```{r}
+library(DT)
+Pred_matched1 <- CSE_enr20201 %>% select(UNIV_ROW_ID,GPA,Act_GPAAPR1stTerm)
+Pred_matched2 <- Prediction_NBC_By_Tier_FTIC2020_UWF %>% mutate(Pred_GPAAPR1stTerm=ifelse(`Pr(AboveGPA)`>=0.5,"Above2.77","Belowe2.77")) %>%  select(UNIV_ROW_ID,Pred_GPAAPR1stTerm,APPLICANT_TIER,ENTRY_COLLEGE)
+
+Matched_2020 <- merge(Pred_matched1,Pred_matched2, by="UNIV_ROW_ID",all.y = T) # merge for 2019
+Matched_2020[which(is.na(Matched_2020$Act_GPAAPR1stTerm)),] # 34 NA from original data
+
+#Matched_20201 <- Matched_2020[!is.na(Matched_2020$Pred_GPAAPR1stTerm),] 
+Matched_20202 <- Matched_2020 %>% 
+      mutate(Matched=ifelse((Act_GPAAPR1stTerm=="Above2.77" & Pred_GPAAPR1stTerm=="Above2.77")|(Act_GPAAPR1stTerm=="Belowe2.77" & Pred_GPAAPR1stTerm=="Belowe2.77"), "Yes","No")) 
+datatable(Matched_20202)
+```
+### Average GPA Rate
+```{r}
+xtabs(~Matched_20202$Act_GPAAPR1stTerm + Matched_20202$Pred_GPAAPR1stTerm)
+xtabs(~Matched_20202$Pred_GPAAPR1stTerm)
+762/1026 #actual prop for above 2.77
+667/1026 #Prediction
+```
+### Average GPA 2019
+
+```{r}
+CSEGPA2019 <- updated1CSEdata %>% filter(COHORT_YEAR==20192020 & TERM_TO_USE==201908) %>% select(ENTRY_COLLEGE,APPLICANT_TIER,FIRST_FALL_GPA)
+CSEGPA2019[which(is.na(CSEGPA2019$FIRST_FALL_GPA)),"FIRST_FALL_GPA"] <- 0
+mean(CSEGPA2019$FIRST_FALL_GPA)
+meanGPAbyCol2019 <- CSEGPA2019 %>% group_by(APPLICANT_TIER) %>% summarise(meanGPA=mean(FIRST_FALL_GPA), Count=n())
+meanGPAbyCol2019
+```
+### Average GPA 2020
+```{r}
+Matched_20202[which(is.na(Matched_20202$GPA)),"GPA"] <- 0
+mean(Matched_20202$GPA)
+meanGPAbyCol2020 <- Matched_20202 %>% group_by(APPLICANT_TIER) %>% summarise(meanGPA=mean(GPA), Count=n())
+meanGPAbyCol2020
+```
+
+
+
+
+### Actural/Prediction GPA by tier
+```{r}
+xtabs(~Matched_20202$APPLICANT_TIER+Matched_20202$Act_GPAAPR1stTerm)
+```
+```{r}
+xtabs(~Matched_20202$APPLICANT_TIER+Matched_20202$Pred_GPAAPR1stTerm)
+```
+
+
+### Overall Accuracy
+```{r}
+xtabs(~Matched_20202$Pred_GPAAPR1stTerm+Matched_20202$Act_GPAAPR1stTerm)
+# Accuracy
+641/1026
+```
+
+
+### Acurracy by Tier
+```{r}
+xtabs(~Matched_20202$APPLICANT_TIER)
+xtabs(~Matched_20202$APPLICANT_TIER+Matched_20202$Matched)
+# Tier 1:5
+124/149
+252/378
+199/374
+59/144
+7/15
+
+```
+### Accuracy by college
+
+```{r}
+tabcol <- table(Matched_20202$Matched,Matched_20202$ENTRY_COLLEGE);tabcol
+tabcol["Yes",]/colSums(tabcol)
+
+```
+
+
+### Missed 34 FTIC from original dataset
+```{r}
+datatable(Matched_20202[is.na(Matched_20202$Act_GPAAPR1stTerm),])
+```
+
+### CSE CRS 2019 vs. 2020
+
+```{r}
+CSE2019 <- CRSCSEData %>% filter(COHORT_YEAR==20192020 & DEMO_TIME_FRAME==201908
+                                 ) %>% select(-2)
+colnames(CSE2019) <-    paste("A", colnames(CSE2019), sep="_")
+write.csv(CSE2019,"CSE2019.csv")
+CSECRS2019 <- CSE2019 %>% select(3,6)
+
+CSE2020 <- CSE_crs1stTerm2020 %>% filter(DEMO_TIME_FRAME==202008) 
+colnames(CSE2020) <-paste("B", colnames(CSE2020), sep="_")
+write.csv(CSE2020,"CSE2020.csv")
+
+CSECRS2020 <- CSE2020 %>% select(3,6)
+
+CSECRS20192020 <- merge(CSECRS2019,CSECRS2020, by.x = "A_COURSE_NAME", by.y="B_COURSE_NAME", all=T)
+CSECRS20192020[CSECRS20192020$A_COURSE_NAME=="23-Mar", "A_COURSE_NAME"] <- "MAR3023"
+
+colnames(CSECRS20192020) <- c("CRSName","Grade2019","Grade2020")
+write.csv(CSECRS20192020,"CSECRSGrade20192020.csv")
+
+cbind.fill <- function(...){
+  nm <- list(...) 
+  nm <- lapply(nm, as.matrix)
+  n <- max(sapply(nm, nrow)) 
+  do.call(cbind, lapply(nm, function (x) 
+    rbind(x, matrix(, n-nrow(x), ncol(x))))) 
+}
+All_CSECRS <- cbind.fill(CSE2019, CSE2020)
+as.data.frame(All_CSECRS)
+
+```
+### Numbers of CRS
+```{r}
+my_DWF_grades <- c("D","D+","W","F","NF","I","I*") # No grades S and XX
+CSE2019$DWF <- sapply(CSE2019[,6], function(x) replace(x, x %in% c("D","D+","W","F","NF","I","I*"), "failed"))
+CSE2019 <- CSE2019 %>% mutate(DWF1 = ifelse(DWF=="failed","DWF","Pass")) 
+AA <- CSE2019 %>% group_by(A_COURSE_NAME,DWF1) %>%   summarise(Count=n(), .groups="drop")
+
+```
+```{r}
+
+tabcol2019 <- table(CSE2019$DWF1,CSE2019$A_COURSE_NAME);tabcol2019
+tabcol2019["1",]/colSums(tabcol2019)
+```
+
+
+```{r}
+
+CSE2020$DWF <- sapply(CSE2020[,6], function(x) replace(x, x %in% c("D","D+","W","F","NF","I","I*"), "failed"))
+CSE2020 <- CSE2020 %>% mutate(DWF1 = ifelse(DWF=="failed","DWF","Pass")) 
+CSE2020 %>% group_by(B_COURSE_NAME) %>%  summarise(Count=n(), .groups='drop') %>% arrange(-Count)
+```
+### prop.table
+```{r}
+tblFun <- function(x,){
+    tbl <- table(x)
+    res <- cbind(tbl,round(prop.table(tbl)*100,1))
+    colnames(res) <- c('Count','Percentage')
+    res
+}
+
+do.call(cbind,lapply(CSE2020$B_COURSE_NAME,tblFun))
+```
+
+### prop.table1
+
+```{r}
+tab2019 <- table(CSE2019$A_COURSE_NAME,CSE2019$DWF1)
+tab2019.add <- addmargins(tab2019) %>% as.data.table()
+colnames(tab2019.add) <- c("CRSName2019","CRSGrade2019","Count2019")
+tab2019.prop <- round(prop.table(tab2019, margin = 1),2) %>% as.data.frame()
+colnames(tab2019.prop) <- c("CRSName2019","CRSGrade2019","CRSProp2019")
+
+tab2019DTprop <- merge(tab2019.prop,tab2019.add, by=c("CRSName2019","CRSGrade2019"))
+
+
+tab2020 <- table(CSE2020$B_COURSE_NAME,CSE2020$DWF1)
+tab2020.add <- addmargins(tab2020) %>% as.data.table()
+colnames(tab2020.add) <- c("CRSName2020","CRSGrade2020","Count2020")
+tab2020.prop <- round(prop.table(tab2020, margin = 1),2) %>% as.data.frame()
+colnames(tab2020.prop) <- c("CRSName2020","CRSGrade2020","CRSProp2020")
+
+tab2020DTprop <- merge(tab2020.prop,tab2020.add, by=c("CRSName2020","CRSGrade2020"))
+
+
+tab20192020 <- merge(tab2019DTprop,tab2020DTprop, by.x = c("CRSName2019","CRSGrade2019"),by.y =c("CRSName2020","CRSGrade2020"), all = T)
+
+write.csv(tab20192020,"tab20192020_CRS_prop.csv")
+```
+
+### prop.table2
+```{r}
+MeanGPA20 <- Matched_20202 %>% group_by(ENTRY_COLLEGE) %>% summarise(meanGPA= round(mean(GPA),2), Count=n(), .groups='drop') %>% as.data.frame();MeanGPA20
+colnames(MeanGPA20) <- c("Entry_College","meanGPA2020","count2020")
+
+updated1CSEdata <- read_csv("Data_IR/updated1CSEdata.csv")
+
+updated1CSEdata[which(is.na(updated1CSEdata$FIRST_FALL_GPA)),"FIRST_FALL_GPA"] <- 0
+MeanGPA19 <- updated1CSEdata %>% filter(COHORT_YEAR==20192020) %>% group_by(ENTRY_COLLEGE) %>%  summarise(meanGPA= round(mean(FIRST_FALL_GPA),2), Count=n(), .groups='drop') %>% as.data.frame();MeanGPA19
+colnames(MeanGPA19) <- c("Entry_College","meanGPA2019","count2019")
+
+meanGPA20192020 <- merge(MeanGPA20,MeanGPA19,by=("Entry_College"),all = T)
+write.csv(meanGPA20192020, "meanGPA20192020.csv")
+```
+
+```{r}
+TierGPA20 <- Matched_20202 %>% group_by(APPLICANT_TIER) %>% summarise(TierGPA= round(mean(GPA),2), Count=n(), .groups='drop') %>% as.data.frame();TierGPA20
+colnames(TierGPA20) <- c("Tier","TierGPA2020","count2020")
+
+updated1CSEdata <- read_csv("Data_IR/updated1CSEdata.csv")
+
+updated1CSEdata[which(is.na(updated1CSEdata$FIRST_FALL_GPA)),"FIRST_FALL_GPA"] <- 0
+TierGPA19 <- updated1CSEdata %>% filter(COHORT_YEAR==20192020) %>% group_by(APPLICANT_TIER) %>%  summarise(TierGPA= round(mean(FIRST_FALL_GPA),2), Count=n(), .groups='drop') %>% as.data.frame();TierGPA19
+colnames(TierGPA19) <- c("Tier","TierGPA2019","count2019")
+
+TierGPA20192020 <- merge(TierGPA20,TierGPA19,by=("Tier"),all = T)
+write.csv(TierGPA20192020, "TierGPA20192020.csv")
+```
+
+
+
+```{r}
+
+MeanGPA20 <- Matched_20202 %>% group_by(ENTRY_COLLEGE) %>% summarise(meanGPA=mean(GPA), Count=n(), .groups='drop') %>% as.data.frame();MeanGPA20
+MeanGPA20a <- Matched_20202 %>% group_by(ENTRY_COLLEGE,APPLICANT_TIER) %>% summarise(meanGPA=mean(GPA), Count=n(), .groups='drop') %>% as.data.frame();MeanGPA20a
+
+mean(CSE_enr2020$GPA, na.rm = T)
+```
+
+### GPA 2015-2020 1st Fall
+```{r}
+
+cse2019GPA <- updated1CSEdata %>% select(COHORT_YEAR, FIRST_FALL_GPA)
+colnames(cse2019GPA) <- c("Cohort","GPA1st")
+cse2020GPA <- CSE_enr2020 %>% select(COHORT_YEAR,GPA)
+colnames(cse2020GPA) <- c("Cohort","GPA1st")
+
+cseall <- rbind(cse2019GPA, cse2020GPA)
+cseall[which(is.na(cseall$GPA1st)), "GPA1st"] <- 0
+
+cseallGPA <- cseall1 %>% group_by(Cohort) %>% summarise(mean1stGPA=round(mean(GPA1st),2), count=n());cseallGPA
+write.csv(cseallGPA,"CSEALL1stGPA.csv")
+
+cseallGPARank <- cseall %>% mutate(APRGPA=ifelse(GPA1st>=2.77,"Above2.77", ifelse(GPA1st>=2.00,"2.00<=GPA<2.77","Beloww2.00")))
+
+
+
+write.csv(cseallGPARank,"cseallGPARank.csv")
+```
+
+### comparison by departments
+```{r}
+# 2019
+cse2019GPAdepart <- updated1CSEdata %>% select(COHORT_YEAR, FIRST_FALL_GPA,ENTRY_DEPARTMENT,ENTRY_PROGRAM ) 
+cse2019GPAdepart[which(is.na(cse2019GPAdepart$FIRST_FALL_GPA)), "FIRST_FALL_GPA"] <- 0
+cse2019GPAdepart1 <- cse2019GPAdepart %>% mutate(APRGPA=ifelse(FIRST_FALL_GPA>=2.77,"Above2.77", ifelse(FIRST_FALL_GPA>=2.00,"2.00<=GPA<2.77","Beloww2.00")))
+colnames(cse2019GPAdepart1) <- c("Cohort","GPA1st","Entry_Depart","Entry_Prog","APRGPA")
+
+
+#2020
+cse2020GPAdepart <- CSE_enr2020 %>% select(COHORT_YEAR, GPA,ENTRY_DEPARTMENT,ENTRY_PROGRAM ) 
+cse2020GPAdepart[which(is.na(cse2020GPAdepart$GPA)), "GPA"] <- 0
+cse2020GPAdepart1 <- cse2020GPAdepart %>% mutate(APRGPA=ifelse(GPA>=2.77,"Above2.77", ifelse(GPA>=2.00,"2.00<=GPA<2.77","Beloww2.00")))
+colnames(cse2020GPAdepart1) <- c("Cohort","GPA1st","Entry_Depart","Entry_Prog","APRGPA")
+
+cse20192020GPAdepart <- rbind(cse2019GPAdepart1,cse2020GPAdepart1)
+df2019 <-cse20192020GPAdepart %>% filter(Cohort==20192020) %>%  group_by(Entry_Depart) %>% summarise(DepartGPA2019=round(mean(GPA1st),2),count2019=n()) %>% arrange(-count2019);df2019
+
+df2020 <-cse20192020GPAdepart %>% filter(Cohort==20202021) %>%  group_by(Entry_Depart) %>% summarise(DepartGPA2020=round(mean(GPA1st),2),count2020=n()) %>% arrange(-count2020);df2020
+
+
+df20192020departGPA <- merge(df2020,df2019, by="Entry_Depart",all=T)
+df20192020departGPA <- df20192020departGPA %>%  mutate(diffGPA = round(DepartGPA2020-DepartGPA2019, digits = 2), diffcount=count2020-count2019)
+
+write.csv(df20192020departGPA,"df20192020departGPA.csv")
+```
+
+## table for grades distribution
+
+```{r}
+CSE2020re <- CSE2020[CSE2020$B_COURSE_NAME != 410228,]
+tab2020CRS_Grds <- table(CSE2020re$B_COURSE_NAME, CSE2020re$B_GRADE_AWARDED)
+
+tab2020.add.Grds_cut <- addmargins(tab2020CRS_Grds)   # sum for margin 1 and 2
+### Convert table to data frmae
+tab2020.add.Grds_cut_frame <- as.data.frame.matrix(tab2020.add.Grds_cut, row.names = F)
+colnames(tab2020.add.Grds_cut_frame) <- paste("FT2020", colnames(tab2020.add.Grds_cut_frame), sep="_")
+tab2020.add.Grds_cut_frame$FT2020CRSName <- rownames(tab2020.add.Grds_cut)
+
+tab2020.add.Grds_cut_framere15 <- tab2020.add.Grds_cut_frame %>% filter(FT2020_Sum>=15)
+
+listCRS <- tab2020.add.Grds_cut[(tab2020.add.Grds_cut$V2=="Sum" & tab2020.add.Grds_cut$N >=20),"V1"] %>% as.data.frame() 
+
+#2019
+CSE2019re <- CSE2019[CSE2019$A_COURSE_NAME != 410228,]
+tab2019CRS_Grds <- table(CSE2019re$A_COURSE_NAME, CSE2019re$A_GRADE_AWARDED)
+tab2019.add.Grds_cut <- addmargins(tab2019CRS_Grds) %>% as.data.table()   # sum for margin 1 and 2
+tab2019.add.Grds_cut[(tab2019.add.Grds_cut$V1 != "Sum" & tab2019.add.Grds_cut$V2!="Sum"),]
+colnames(tab2019.add.Grds_cut) <- c("CRSName2019","CRSGrade2019","Count2019")
+tab2019.add.Grds_cut[tab2019.add.Grds_cut$CRSName2019=="23-Mar","CRSName2019"] <- "MAR3023"
+
+# remove sum for each courses
+listCRS_grads_cut <- merge(listCRS, tab2020.add.Grds_cut, by="V1", all.x=T) %>% filter(V2 != "Sum")
+colnames(listCRS_grads_cut) <- c("CRSName2020","CRSGrade2020","Count2020")
+
+
+
+tab2020.prop.Grds <- round(prop.table(tab2020CRS_Grds, margin = 1),2) %>% as.data.frame()
+colnames(tab2020.prop.Grds) <- c("CRSName2020","CRSGrade2020","CRSProp2020")
+
+
+write.csv(tab2020.prop.Grds,"tab2020_prop_Grds.csv")
+write.csv(listCRS_grads_cut,"listCRS_grads_cut.csv")#2020
+write.csv(tab2020.add.Grds_cut_framere30,"tab2020.add.Grds_cut_framere30.csv")
+write.csv(tab2019.add.Grds_cut,"tab2019_add_Grds_cut.csv") #2019
+```
+
+### Financial AID and Grade
+
+```{r}
+myAID <- read_excel("V1CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+     sheet = "CSE Analysis Data 2020 Cohort") %>% select(1,"ETHNICITY",contains("GPA"),contains("FIRST"),contains("PROPORTION"))
+
+myAID$SumAidLoan <- (myAID$FIRST_FALL_PELL_AMOUNT+myAID$FIRST_FALL_BRIGHT_FUTURES_AMOUNT+myAID$FIRST_FALL_ANY_LOANS_AMOUNT+myAID$FIRST_FALL_NON_NEED_BASED_LOANS_AMOUNT)
+
+myAID$SumAid <- (myAID$FIRST_FALL_PELL_AMOUNT+myAID$FIRST_FALL_BRIGHT_FUTURES_AMOUNT)
+
+
+myAID$SumLoan <- (+myAID$FIRST_FALL_ANY_LOANS_AMOUNT+myAID$FIRST_FALL_NON_NEED_BASED_LOANS_AMOUNT)
+
+myAID$mySupport <- ifelse(myAID$SumAidLoan>0,"Yes","No")
+myAID$anyAID <- ifelse(myAID$SumAid>0, "Yes","No")
+myAID$anyLoan <- ifelse(myAID$SumLoan>0, "Yes","No")
+
+glimpse(myAID)
+
+
+```
+
+```{r}
+addmargins(table(myAID$mySupport))
+addmargins(table(myAID$ETHNICITY,myAID$mySupport))
+addmargins(table(myAID$ETHNICITY,myAID$anyAID))
+
+```
+
+### filter for DWF max count numners by ID
+```{r}
+myAIDGrade <- read_excel("V1CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+     sheet = "CSE Analysis Courses 2020 Cohor") %>% filter(str_detect(GRADE_AWARDED, "D|D+|W|F|NF|I")) %>% group_by(UNIV_ROW_ID) %>% mutate(DWFCounts=row_number()) %>% filter(DWFCounts==max(DWFCounts))
+glimpse(myAIDGrade)
+```
+### Merge with AID data and DWF Coutns Data
+
+```{r}
+allAIDDWF <- merge(myAID, myAIDGrade, by="UNIV_ROW_ID", all=T) 
+allAIDDWF[which(is.na(allAIDDWF$GRADE_AWARDED)),"DWFCounts"] <- 0
+table(allAIDDWF$anyAID,allAIDDWF$DWFCounts)
+```
+```{r}
+myAIDGradeAll <- read_excel("V1CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+     sheet = "CSE Analysis Courses 2020 Cohor") %>% filter(str_detect(GRADE_AWARDED, "D|D+|W|F|NF|I")) %>% group_by(UNIV_ROW_ID) %>% mutate(DWFCounts=row_number()) 
+
+table(myAIDGradeAll$GRADE_AWARDED)
+
+allAIDDWFall <- merge(myAID, myAIDGradeAll, by="UNIV_ROW_ID", all=T) 
+allAIDDWFall[which(is.na(allAIDDWFall$GRADE_AWARDED)),"DWFCounts"] <- 0
+table(allAIDDWFall$anyAID,allAIDDWFall$GRADE_AWARDED)
+
+```
+
+### DWF data table 2020 Fall
+```{r}
+DWFtable <- addmargins(table(myAIDGradeAll$COURSE_NAME, myAIDGradeAll$GRADE_AWARDED))
+DWFtabledf <- as.data.frame.matrix(DWFtable)
+DWFtabledf$COURSE_NAME <- rownames(DWFtable)
+DWFtabledf[-1,]
+
+write.csv(DWFtabledf,"DWFdatatable.csv")
+```
+
+### merge with Spring course within DWF
+
+```{r}
+SpringTermcrs <- read_excel("V1CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+     sheet = "Registered Spring courses") %>% glimpse()
+SpringTermcrs[SpringTermcrs$CRS_IND== ".","CRS_IND"] <- ""
+SpringTermcrsre <- within(SpringTermcrs, COURSE_NAME <- paste(CRS_PREFIX,CRS_NBR,CRS_IND, sep="") )
+
+SpringTermcrsRe <- SpringTermcrsre[,c(1,2,10)]
+colnames(SpringTermcrsRe) <- c("UNIV_ROW_ID","SpringDEMO_TIME_FRAME","SpringCOURSE_NAME")
+
+FallSpringDWF <- merge(myAIDGradeAll, SpringTermcrsRe, by.x=c("UNIV_ROW_ID","COURSE_NAME"), by.y=c("UNIV_ROW_ID","SpringCOURSE_NAME"),  all.x=T) %>% mutate(Retake=ifelse(SpringDEMO_TIME_FRAME>0,"Yes","No"))
+FallSpringDWF$F_W <- ifelse(FallSpringDWF$GRADE_AWARDED=="W","W","F")
+FallSpringDWF[which(is.na(FallSpringDWF$Retake)), "Retake"] <- "No"
+length(unique(FallSpringDWF$UNIV_ROW_ID)) #321 FTIC 2020 have at least one DWF
+
+### export DWF data
+write.csv(FallSpringDWF,"FallSpringDWF.csv")
+
+```
+## updated Spring FTIC2020
+```{r}
+
+# from 4579 to 4814 and 914 to 956
+library(dplyr)
+#Spring
+SpringCRS_2020_Cohort_01_12Re <- SpringCRS_2020_Cohort_01_12Re %>% select(1:2)
+SpringCRS_2020_Cohort_01_12ReRe <- SpringCRS_2020_Cohort_01_12Re[!duplicated(SpringCRS_2020_Cohort_01_12Re$UNIV_ROW_ID),] #965
+colnames(SpringCRS_2020_Cohort_01_12ReRe) <- c("UNIV_ROW_ID","SpringDEMO_TIME_FRAME")
+#Fall spring time
+library(readxl)
+FallgCRS_2020_Cohort_01_28 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/FTIC 2021 Data/CSE Analysis Full Data 2020 Cohort_Update 01-28.xlsx", 
+     sheet = "Courses") %>% filter(DEMO_TIME_FRAME==202008) %>% select(1,2) #5227
+
+
+colnames(FallgCRS_2020_Cohort_01_28) <- c("UNIV_ROW_ID","FallDEMO_TIME_FRAME")
+FallgCRS_2020_Cohort_01_12Re <- FallgCRS_2020_Cohort_01_28[!duplicated(FallgCRS_2020_Cohort_01_28$UNIV_ROW_ID),]#1029
+#Spring
+
+ReturningFT2020 <- merge(FallgCRS_2020_Cohort_01_12Re,SpringCRS_2020_Cohort_01_12Re, by="UNIV_ROW_ID", all.x = T)
+ReturningFT2020 <- ReturningFT2020[!duplicated(ReturningFT2020),]
+ ReturningFT2020[which(is.na(ReturningFT2020$SpringDEMO_TIME_FRAME)),"SpringDEMO_TIME_FRAME"] <- "No"
+  ReturningFT2020[ReturningFT2020$SpringDEMO_TIME_FRAME==202101,"SpringDEMO_TIME_FRAME"] <- "Yes"
+  
+ReturningGPA <- merge(ReturningFT2020,Pred_matched1,by="UNIV_ROW_ID",all=T)  
+ReturningGPA1 <- merge(ReturningGPA, CSE_ALL_2020_tier, by="UNIV_ROW_ID", all=T)
+mean(ReturningGPA1$GPA)
+
+write.csv(ReturningGPA1,"ReturningGPA1.csv")
+
+#ENC data
+CSE_ALL_ENR_2021 <- read.csv("G:/Shared drives/HMCSE-PAM Lab/DATA 202001/upto2020/CSE_ALL_ENR_up2020.csv") %>% filter(COHORT_YEAR==20202021)
+#updated 01-28-2021
+library(readxl)
+FallgCRS_2020_Cohort_01_28 <- read_excel("G:/Shared drives/HMCSE-PAM Lab/FTIC 2021 Data/CSE Analysis Full Data 2020 Cohort_Update 01-28.xlsx", 
+     sheet = "Courses") %>% filter(DEMO_TIME_FRAME==202101) %>% select(1,2)
+colnames(FallgCRS_2020_Cohort_01_28) <- c("UNIV_ROW_ID","ReturningSpring")
+FallgCRS_2020_Cohort_01_28_re <- FallgCRS_2020_Cohort_01_28[!duplicated(FallgCRS_2020_Cohort_01_28$UNIV_ROW_ID),] #961
+ENC_crs_updated <- merge(FallgCRS_2020_Cohort_01_28_re, CSE_ALL_ENR_2021, by="UNIV_ROW_ID", all.y=T)
+ENC_crs_updated[which(is.na(ENC_crs_updated$ReturningSpring)),"ReturningSpring"] <- "Dropping"
+ENC_crs_updated[which(ENC_crs_updated$ReturningSpring=="202101"),"ReturningSpring"] <- "Returning"
+write.csv(ENC_crs_updated,"ENC_crs_updated_01_28_2021.csv")
+#glimpse(ENC_crs_updated)
+```
+
+```{r}
+table(FallSpringDWF$GRADE_AWARDED)
+addmargins(table(FallSpringDWF$F_W,FallSpringDWF$Retake))
+```
+```{r}
+tableretaking <- addmargins(table(FallSpringDWF$COURSE_NAME, FallSpringDWF$Retake))
+tblaeretaking1 <- as.data.frame.matrix(tableretaking)
+tblaeretaking1$COURSE_NAME <- rownames(tableretaking)
+tblaeretaking2 <- tblaeretaking1 %>% select(4,1:3)
+colnames(tblaeretaking2) <- c("COURSE_NAME","Retaking_No","Retaking_Yes","TotalCountDWF")
+tblaeretaking3 <- tblaeretaking2[-1,]
+
+### export retaking Course name table
+write.csv(tblaeretaking3,"DWFRetakingSpring.csv")
+```
+## max values for each cols
+```{r}
+maxs <- apply(CSE_enr20201, 2, max)
+max1 <- CSE_enr20201 %>% summarise_if(is.numeric, max,na.rm=T);max1
+```
+### find attempted hours and earned hours
+
+```{r}
+CSE2020sumhours <- CSE2020 %>% group_by(B_UNIV_ROW_ID) %>% summarise(AttemptedHours = sum(B_STU_SECTN_CRED) );CSE2020sumhours
+CSE2020sumearned <- CSE2020[(CSE2020$B_GRADE_AWARDED=="A"|CSE2020$B_GRADE_AWARDED=="A+"|CSE2020$B_GRADE_AWARDED=="B+"|CSE2020$B_GRADE_AWARDED=="B"|CSE2020$B_GRADE_AWARDED=="B-"|CSE2020$B_GRADE_AWARDED=="C+"|CSE2020$B_GRADE_AWARDED=="C"|CSE2020$B_GRADE_AWARDED=="C-"|CSE2020$B_GRADE_AWARDED=="S"|CSE2020$B_GRADE_AWARDED=="P"),] %>%   group_by(B_UNIV_ROW_ID) %>% summarise(EarnedHours=sum(B_STU_SECTN_CRED));CSE2020sumearned
+
+CSE2020SumHrs <- merge(CSE2020sumhours,CSE2020sumearned, by="B_UNIV_ROW_ID", all=T)
+ CSE2020SumHrs[which(is.na(CSE2020SumHrs$EarnedHours)),"EarnedHours"] <- 0
+colnames(CSE2020SumHrs) <- c("UNIV_ROW_ID","AttemptedHours","EarnedHours")
+
+
+SpringTermcrsRe1 <- SpringTermcrsRe %>% group_by(UNIV_ROW_ID)%>%  select(1,2) %>% mutate(rowC=row_number()) %>% filter(rowC==min(rowC))
+
+
+CSE2020SumHrs2 <- merge(CSE2020SumHrs,SpringTermcrsRe1, by="UNIV_ROW_ID",all.x = T)
+CSE2020SumHrs2[which(is.na(CSE2020SumHrs2$rowC)),"rowC"] <- 0
+CSE2020SumHrs3 <- CSE2020SumHrs2 %>% select(1:3,5)
+colnames(CSE2020SumHrs3) <- c("UNIV_ROW_ID","AttemptedHours","EarnedHours","SpringDropouts")
+table(CSE2020SumHrs3$SpringDropouts)#88.8%returned
+CSE_enr20202 <- CSE_enr20201 %>% select(1,"GPA")
+CSE2020SumHrs4 <- merge(CSE2020SumHrs3, CSE_enr20202,by="UNIV_ROW_ID", all.x = T)
+
+### export attempted and earned data
+write.csv(CSE2020SumHrs4,"CSE2020attemptedEarnedHrs.csv")
+
+CorrectTier2020 <- V1FreqOrderwith9crs_MASTER_CRSCSE_allcourse_tier %>% select(1,"APPLICANT_TIER")
+CSE_enr2020newtier <- merge(CSE_enr2020, CorrectTier2020, by= "UNIV_ROW_ID",all.x = T)
+CSE_enr2020$APPLICANT_TIER <- CSE_enr2020newtier$APPLICANT_TIER.y
+CSE_ALL_ENR_up2020 <- rbind(updated1CSEdata, CSE_enr2020)
+ CSE_ALL_ENR_up2020[CSE_ALL_ENR_up2020$GENDER=="F","GENDER"] <- "Female"
+ CSE_ALL_ENR_up2020[CSE_ALL_ENR_up2020$GENDER=="M","GENDER"] <- "Male"
+ CSE_ALL_ENR_up2020[CSE_ALL_ENR_up2020$COUNTY_GROUP=="Tri County","COUNTY_GROUP"] <- "Tri-County"
+ CSE_ALL_ENR_up2020[CSE_ALL_ENR_up2020$COUNTY_GROUP=="Non-Florida/Alabama Counties","COUNTY_GROUP"] <- "Non-Florida/Alabama"
+
+write.csv(CSE_ALL_ENR_up2020,"V1CSE_ALL_ENR_up2020.csv")
+
+
+```
+
+```{r}
+
+
+FT20CRS <- read_excel("V1CSE Analysis Full Data 2020 Cohort 12-19-20.xlsx", 
+     sheet = "CSE Analysis Courses 2020 Cohor")
+FT20CRS$COHORT_YEAR <- rep(20202021)
+FT20CRS <- FT20CRS %>% select(1,7,2:6)
+CRSCSEDataup19 <- read_csv("Data_IR/CRSCSEData.csv") %>% filter(COHORT_YEAR<=20192020)
+
+CRSCSEGRADE_ALL_1920 <- rbind(CRSCSEDataup19,FT20CRS)
+CRSCSEGRADE_ALL_1920$DWFIUNG <- sapply(CRSCSEGRADE_ALL_1920[,7], function(x) replace(x, x %in% c("D","D+","W","F","NF","I","I*","U","NG"), "DWFIUNG"))
+CRSCSEGRADE_ALL_1920 <- CRSCSEGRADE_ALL_1920 %>% mutate(DWFIUNG1 = ifelse(DWFIUNG=="DWFIUNG","NoEarned","YesEarned")) 
+# passing grades
+CRSCSEGRADE_ALL_1920$GradePoints <- CRSCSEGRADE_ALL_1920$GRADE_AWARDED
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="A", "GradePoints"] <- "4.0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="A-", "GradePoints"] <- "3.70"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="B", "GradePoints"] <- "3.0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="B+", "GradePoints"] <- "3.30"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="B-", "GradePoints"] <- "2.70"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="C-", "GradePoints"] <- "1.70"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="C+", "GradePoints"] <- "2.30"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="C", "GradePoints"] <- "2.00"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="D", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="D+", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="F", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="NF", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="U", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="W", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="I", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="I*", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920[CRSCSEGRADE_ALL_1920$GradePoints=="NG", "GradePoints"] <- "0"
+CRSCSEGRADE_ALL_1920$GradePoints <- as.numeric(CRSCSEGRADE_ALL_1920$GradePoints)
+
+write.csv(CRSCSEGRADE_ALL_1920,"CRS_ALL_up2020.csv")
+```
+
