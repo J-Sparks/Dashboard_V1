@@ -1,0 +1,302 @@
+---
+title: "Who Will Leave or Who Will Stay?"
+
+author: "Jay Sparks"
+date: "1/26/2021"
+
+output:
+  html_document: null
+  ioslides_presentation: default
+  css: ["style-1.css", "style-2.css"]
+  output: latex_fragment
+  echo: no
+  pdf_print: paged
+subtitle: "Associating FTIC Admissions Data with Atypical APR Performance Using Apriori
+  Algorithm"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(DT)
+library(arules)
+library(arulesViz)
+library(RColorBrewer)
+# read file
+library(readr)
+apriori_re_data <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/InexperiencedFTIC/apriori_re_data.csv", 
+    col_types = cols(X1 = col_skip(), X = col_skip()))
+library(dplyr)
+# my variables
+In_experiencedFTIC <- apriori_re_data %>% 
+  select(APR,AveGPA2.77,"PSE"=AREA_OF_STRATEGIC_EMPHASIS,COUNTY,HIGH_SCHOOL_NAME,codeHSGPA,codePriorHrs,
+         codeAPHrs,codeEarnedHrs,codeWithdrawn,codePell,codeSumLoanAmount,codeBright) %>% na.omit()
+In_experiencedFTIC[In_experiencedFTIC$PSE=="Not Available", "PSE"] <- "Non-PSE"
+#factor variables
+In_experiencedFTIC$AveGPA2.77 <- as.factor(In_experiencedFTIC$AveGPA2.77)
+In_experiencedFTIC$codePell <- as.factor(In_experiencedFTIC$codePell)
+In_experiencedFTIC$codeSumLoanAmount <- as.factor(In_experiencedFTIC$codeSumLoanAmount)
+In_experiencedFTIC$codeBright <- as.factor(In_experiencedFTIC$codeBright)
+In_experiencedFTIC$codeHSGPA <- as.factor(In_experiencedFTIC$codeHSGPA)
+In_experiencedFTIC$codeWithdrawn <- as.factor(In_experiencedFTIC$codeWithdrawn)
+In_experiencedFTIC$codeEarnedHrs <- as.factor(In_experiencedFTIC$codeEarnedHrs)
+In_experiencedFTIC$APR <- as.factor(In_experiencedFTIC$APR)
+In_experiencedFTIC$PSE <- as.factor(In_experiencedFTIC$PSE)
+In_experiencedFTIC$codePriorHrs <- as.factor(In_experiencedFTIC$codePriorHrs)
+In_experiencedFTIC$codeAPHrs <- as.factor(In_experiencedFTIC$codeAPHrs)
+#write.csv(In_experiencedFTIC,"Association_df.csv")
+```
+
+```{css, echo=FALSE}
+p {
+  font-size: 18px;
+}
+
+h1  {
+text-align: center;
+}
+```
+
+# Abstract
+
+When students apply to college, the admissions office evaluates their potential by checking factors such as their high school GPA and standard test scores. However, not all first time in college students (FTIC) go on to perform as well as expected – some dropout due to under performance, and some overperformers transfer to other institutions. This study examines what entry level factors such as prior university credit hours, financial aid, and targeted degree programs, in combination with first semester performance, are strongly associated with atypical academic progress rate (APR) performance and non-retention. The analysis uses Apriori algorithm and determines what combinations of elements could characterize non-returning atypical performers, and what elements are strongly associated in those characterization rules. 
+
+
+# Indroduction
+
+Academic progress rate (APR) is an important measurement for improving graduation rates at colleges and universities and it is well accepted that higher performing incoming students will have better APR than their lower performing peers. This is because their grade performance in their first college term is a good predictor of their overall career performance. However, improvements in incoming first time in college (FTIC) student potential measured via high school GPA and standardized test scores does not always translate into improved APR. This is because even higher potential students can still drop out or leave an institution. Still, administrative decisions about acceptance tend to be based on high school GPA and test scores in the absence of better predictors. The assumption about performance prior to college equating to first term performance dictates where efforts are placed to reward (i.e. scholarships) as well as support (i.e. interventions) students. However, some high potential students do not perform well their first term, and others do but go on to leave the institution by using it as a stepping stone. How can administrators use application data to make more nuanced decisions about how to best apply their resources in improving student performance and APR?
+
+
+The population at the medium sized southeastern campus in the present study has experienced continuous annual improvements in FTIC’s high school GPA and test scores. In other words, the number of students at-risk and in need of academic interventions has been declining. Still, around 20% of FTIC do not return after their first year. This results in a disconnect between higher potential among students and institutional metrics. Capturing the characteristics of these non-returning students over time is challenging because the ability to track them ceases after their departure. It is important to be able to predict the likelihood of retaining them based solely on a priori factors. These factors can include admissions data such as high school GPA, test scores, AP credit, prior hours, financial aid, scholarships, degree programs, and residence, along with first term performance as a confirming factor for the admissions data.
+
+
+# Problem Statements
+
+Typically, APR is determined using the first year GPA if it is above 2.00 for one year.  The majority of flagged low performance FTIC groups are determined by high school GPA and standard test scores.  This study categorizes FTICs into either APR or non-APR groups using elements that the university collected during admissions and first semester.  In order to identify non-APR FTIC it was necessary to supplement the admissions data with first term academic performance.  
+
+  *  What combinations of elements can best characterize APR and non-APR FTICs based on avaiable data?
+  *  What are the most frequent elements among FTIC with lower GPA in the first fall?
+  *  What elements are most strongly associated in those characterization rules?
+
+
+# Methods
+
+## 1. Variable Coding
+
+Variable Coding
+  The elements of college students are in the table below.
+
+
+*  **APR/ non-APR** 
+      + Returned in their second Fall with a above GPA 2.00 or did not return 
+      
+*  **1st Fall Average GPA**
+      + Above/Below Average GPA 2.77
+      
+*  **Targeted Degree Program**
+      + Education/gap analysis/global/health/STEM/none
+      
+*  **Counties**
+      + 67 Lists of Florida counties/Non-Florida counties/Non-USA
+
+*  **High School GPA ordinal values**
+      + GPA < 3.50
+      + 3.50 <= GPA < 3.80
+      + 3.80 <= GPA < 4.00
+      + GPA >= 4.00
+      
+*  **Prior Hours**
+      +	None: zero hours to brought
+      + <= 9 hours
+      + Greater than 9 or less than 21 hours
+      +	Greater than or equal to 21 hours
+      
+      
+*	 **AP Credits**
+      + None/more than or equal to one hour
+      
+*  **Earned Credit Hours**
+      + 0 to 4 hours
+      +	5 to 10 hours
+      +	11 to 12 hours
+      +	13 to 14 hours
+      +	More than 15 hours
+      
+*  **Withdrawn hours**;Grades of Withdrawn have no effect on GPA, but also do not count towards credit hours.
+      +	None; 0 hours of withdrawn
+      +	1 to 3 hours
+      +	More than or equal to 4 hours
+      
+*	 **Scholarships**
+      +	None; no scholarships awarded
+      +	Less than $1,584
+      + 1,584 to $15,474
+
+*	 **Pell Grant**
+      +	None; no Pell grant
+      +	Less than $1,923
+      + 1,923 to $13,242
+      
+*  **Sum of student’s loans**
+      +	None; no students loan available
+      +	Less than $3,712	
+      + 3,712 to $59,764
+
+
+## 2. Apriori Algorithm
+
+This study focuses on finding strong relationship that associated with lower performance in the firs term in college considering large set of variables.  An association rule is simply a conditional statement of the form as “if p then q” or $P →Q$,where $P$ and $Q$ as disjoint itemsets,i.e.,$P∩Q =∅$.   The strength of relationship can be measured in terms of its support and confidence.  Support mean how often a rule is applicable  to a given data set, and the confidence determines how frequently items in $Q$ appears in transactions that contain $P$.  The definition of these metrics are
+Let $I={i_1,i_2,…,i_d }$  be the set of all items in the data set and $T={t_1,t_2,…,t_N }$  then the set of all transactions. 
+ Each transaction $t_i$  contains a subset of items chose from $I$.   
+The property of an interest is its support count, 
+which means the number of transactions that contain a particular items.  
+Mathematically,the support count,$σ(P)$,for items set $P$ can be stated as follows:   
+$σ(P)=|{t_i |P ⊆ t_i,t_i  ∈T}|$,  
+
+*  **Support**: 
+	$sup⁡(P →Q)  =(σ(P∪Q) /N)$;
+*  **Confident**: 
+	$conf(P →Q) = (σ(P∪Q))/(σ(P))$;
+*  **Interest Factor**: 
+	$Lift = (σ(P → Q))/(sup⁡(Q))$.
+
+
+# Results
+
+```{r include=FALSE}
+#transactions
+transac_inexpFTIC <- as(In_experiencedFTIC, "transactions") 
+class(transac_inexpFTIC)
+
+summary(transac_inexpFTIC)
+
+
+```
+
+
+## 1.Frequency Plot by Absolute
+
+```{r}
+ itemFrequencyPlot(transac_inexpFTIC, topN=20,
+                   col = brewer.pal(8, 'Pastel2'), 
+                          main = 'TOP 20 Absolute Element Frequency Plot', 
+                          type = "absolute", 
+                          ylab = "Element Frequency (Absolute)")
+```
+
+## 2.Frequency Plot by Relative
+
+```{r}
+ arules::itemFrequencyPlot(transac_inexpFTIC, supp=0.2,  
+                          col = brewer.pal(8, 'Pastel2'), 
+                          main = 'More Than 20% Levels Frequency Plot', 
+                          type = "relative", 
+                          ylab = "Element Frequency (Relative)")
+```
+
+## 3.Association Rules for APR
+
+```{r paged.print=TRUE}
+# results for above 2.00 & earned hours >= 12 in the first term
+rules_above <- apriori(transac_inexpFTIC,parameter = list(minlen=3, maxlen=5, conf=.95, support=0.06), # to see whether there is sufficient evidence to suggest
+                       appearance = list(rhs=c("APR=Yes"), default = "lhs"))
+
+#sum(is.redundant(rules_above)) #286-163
+
+above <- rules_above[!is.redundant(rules_above)]
+outputAPR <- cbind(label=labels(above), quality(above))
+DT::datatable(outputAPR)
+#inspectDT(head(sort(above, by="lift")))
+#results_above <- DATAFRAME(above[1:20])
+#write(above,"InexperiencedFTIC_APR.csv", sep=",", row.names=FALSE)
+
+
+```
+
+## 4.Association Rules for non-APR
+
+```{r paged.print=TRUE}
+rules_below <- apriori(transac_inexpFTIC,parameter = list(minlen=2, maxlen=6, conf=.8, support=0.01), # to see whether there is sufficient evidence to suggest
+                       appearance = list(rhs=c("APR=No"), default = "lhs"))
+
+
+sum(is.redundant(rules_below)) #616-495
+non_APR <- rules_below[!is.redundant(rules_below)]
+outputnonAPR <- cbind(label=labels(non_APR), quality(non_APR))
+DT::datatable(outputnonAPR)
+#below_DT <- inspectDT(head(sort(non_APR, by="lift"),83))
+#write(non_APR,"FTIC_nonAPR.csv", sep=",", row.names=FALSE)
+
+#below_lift <- inspect(head(sort(non_APR, by="lift"),20))
+#results_above <- DATAFRAME(non_APR[1:20])
+
+```
+
+## 5.Association Rules among Below Average GPA in the First Fall and APR
+
+```{r paged.print=TRUE}
+belowGPAFTIC <- In_experiencedFTIC[In_experiencedFTIC$AveGPA2.77=="No",] %>% select(-2)
+belowGPAFTIC$COUNTY <- as.factor(belowGPAFTIC$COUNTY)
+belowGPAFTIC$HIGH_SCHOOL_NAME<- as.factor(belowGPAFTIC$HIGH_SCHOOL_NAME)
+
+transac_belowGPAFTIC <- as(belowGPAFTIC, "transactions") 
+rules_belowGPA <- apriori(transac_belowGPAFTIC,parameter = list(minlen=4, maxlen=4, conf=.9, support=0.01),
+                       appearance = list(rhs=c("APR=Yes"), default = "lhs"))
+
+ # to see whether there is sufficient evidence to suggest
+sum(is.redundant(rules_belowGPA)) #66-33
+GPA_below <- rules_belowGPA[!is.redundant(rules_belowGPA)]
+outputBelowGPA <- cbind(label=labels(GPA_below), quality(GPA_below))
+DT::datatable(outputBelowGPA)
+
+
+```
+
+## 6.Association Rules among Below Average GPA in the First Fall and Non-APR
+
+```{r paged.print=TRUE}
+transac_belowGPAFTIC <- as(belowGPAFTIC, "transactions") 
+rules_belowGPA_non <- apriori(transac_belowGPAFTIC,parameter = list(minlen=2, maxlen=4, conf=.9, support=0.01), 
+                       appearance = list(rhs=c("APR=No"), default = "lhs"))
+# to see whether there is sufficient evidence to suggest
+
+sum(is.redundant(rules_belowGPA_non)) #477-406
+GPA_below_non <- rules_belowGPA_non[!is.redundant(rules_belowGPA_non)]
+outputBelowGPA_non <- cbind(label=labels(GPA_below_non), quality(GPA_below_non))
+DT::datatable(outputBelowGPA_non)
+
+```
+
+### 7.Association Ruels among Lower High School GPA and APR
+
+```{r}
+belowHSGPA3.5FTIC <- In_experiencedFTIC %>% filter(codeHSGPA=="[0,3.49]") %>% select(COUNTY,HIGH_SCHOOL_NAME,codePell,PSE,APR)
+belowHSGPA3.5FTIC$COUNTY <- as.factor(belowHSGPA3.5FTIC$COUNTY)
+belowHSGPA3.5FTIC$HIGH_SCHOOL_NAME<- as.factor(belowHSGPA3.5FTIC$HIGH_SCHOOL_NAME)
+
+transac_belowHSGPA3.5FTIC <- as(belowHSGPA3.5FTIC, "transactions") 
+rules_belowHSGPA3.5 <- apriori(transac_belowHSGPA3.5FTIC,parameter = list(minlen=1, maxlen=4, conf=.5, support=0.01),
+                       appearance = list(rhs=c("APR=Yes"), default = "lhs"))
+ # to see whether there is sufficient evidence to suggest
+sum(is.redundant(rules_belowHSGPA3.5)) #66-33
+HSGPA_below <- rules_belowHSGPA3.5[!is.redundant(rules_belowHSGPA3.5)]
+outputBelowHSGPA <- cbind(label=labels(HSGPA_below), quality(HSGPA_below))
+DT::datatable(outputBelowHSGPA)
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+chi2 <- crossTable(transac_inexpFTIC, measure="chiSquared", sort=TRUE)
+round(chi2[1:10,1:10], digits = 5)
+
+#write(non_APR,"InexperiencedFTIC_nonAPR.csv", sep=",", row.names=FALSE)
+
+```
+
+
+# Conclusion
+
+The results show that approximately 60% of them have above average GPA their first term, with 80% having no withdrawn hours. The most strongly associated elements with underperforming dropouts are below average first term GPA, no targeted degree program, no scholarships, high loan amounts, out-of-state residents that earned less than four credit hours, withdrawn more than four hours, and entering with more than 21 hours but earning less than five in their first term. While the most strongly associated elements with overperforming non-returning students are high school GPA above 4.0. above average first term GPA, local residency, no withdrawn hours, high amount of scholarships, and no loan amounts. These findings suggest that different types of interventions are needed to address these atypical non-returning students. Those with signs of potential atypically low APR should receive support interventions to encourage their academic success. Those with atypically high APR potential should receive scholarships that are contingent upon retention in order to incentivize them to complete their degrees at the same institution.
+
+# Reference
