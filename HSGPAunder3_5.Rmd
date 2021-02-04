@@ -1,0 +1,140 @@
+
+---
+title: "Summary - Admitted 2021 FTIC HS GPA under 3.5"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(readr)
+HSGPAunder <- read_csv("G:/Shared drives/HMCSE-PAM Lab/Jay's Space/DATA/3.0-3.5_Tiers.csv", 
+    col_types = cols(Column1 = col_skip())) %>% select(UWFID,TIER="Pred_Tier",HS_OFFER_GPA,HS_CORE_GPA,BEST_SCORE,TRANSFER_HOURS_EARNED,HS_NAME,HS_CNTY,CURRICULUM_COLL,CURRICULUM_DEPT,
+                                                       contains("PROGRAM"),GENDER,RACE,CNTY)
+pMISS <- function(x){sum(is.na(x))/length(x)*100}
+apply(HSGPAunder,2, pMISS)
+##HSGPA rank
+HSGPAunder <- HSGPAunder %>% mutate(codeHSGPA=ifelse(HS_OFFER_GPA<=3.1000,"GPA<=3.10",
+                                                     ifelse(HS_OFFER_GPA<=3.20,"GPA<=3.20",
+                                                            ifelse(HS_OFFER_GPA<=3.30,"GPA<=3.30",
+                                                                   ifelse(HS_OFFER_GPA<=3.40,"GPA<=3.4","GPA<3.5")))))
+#Replace college
+
+HSGPAunder <- HSGPAunder %>% mutate(COLLEGE=ifelse(CURRICULUM_COLL==0,"UNA",
+                                                   ifelse(CURRICULUM_COLL=="A","HMCSE",
+                                                          ifelse(CURRICULUM_COLL=="P","CEPS",
+                                                                 ifelse(CURRICULUM_COLL=="H","CASSH",
+                                                                        ifelse(CURRICULUM_COLL=="M","UKCOH",
+                                                                               ifelse(CURRICULUM_COLL=="B","COB","NA")))))))
+# transfer hours NA==0
+HSGPAunder[which(is.na(HSGPAunder$TRANSFER_HOURS_EARNED)),"TRANSFER_HOURS_EARNED"] <- 0
+# HS_CORE_GPA
+HSGPAunder[which(is.na(HSGPAunder$HS_CORE_GPA)),"HS_CORE_GPA"] <- 0
+# RACE NA=NA
+HSGPAunder[which(is.na(HSGPAunder$RACE)),"RACE"] <- "NA"
+
+HSGPAunder$codeRACE <- HSGPAunder$RACE
+HSGPAunder[HSGPAunder$codeRACE == "W","codeRACE"] <- "White"
+HSGPAunder[HSGPAunder$codeRACE == "B","codeRACE"] <- "African American"
+HSGPAunder[HSGPAunder$codeRACE == "A","codeRACE"] <- "Asian"
+HSGPAunder[HSGPAunder$codeRACE == "I","codeRACE"] <- "Indian"
+twoormore <- c("I,W","P,W","B,W","B,P","A,W","A,B")
+
+HSGPAunder$codeRACE <- sapply(HSGPAunder[,18], function(x) replace(x, x %in% c("I,W","P,W","B,W","B,P","A,W","A,B"), 99))
+ HSGPAunder$codeRACE <- gsub(99,"Two or more", HSGPAunder$codeRACE)
+unique(HSGPAunder$codeRACE)
+```
+```{css, echo=FALSE}
+.rpivottable{overflow-x: scroll; }
+
+```
+
+
+Column {.tabset .tabset-fade }
+-----------------------------------------------------------------------
+
+
+### TIER by COLLEGE
+
+```{r}
+library(plotly)
+library(dplyr)
+
+HSGPAunder$codeHSGPA <- as.factor(HSGPAunder$codeHSGPA)
+fig_a <- HSGPAunder
+fig_a$TIER <- as.factor(fig_a$TIER)
+
+fig_a <- fig_a %>% count(TIER, COLLEGE)
+fig_a <- fig_a %>% plot_ly(x= ~COLLEGE, y=~n, color=~TIER)
+fig_a
+```
+
+### Gender by Counties
+
+```{r}
+fig_b <- HSGPAunder %>% 
+  group_by(CNTY,GENDER) %>% 
+  summarise(count=n()) %>% na.omit() %>% 
+  plot_ly(x=~CNTY, y=~count,color =~ GENDER, type="bar") %>% 
+  #add_trace(y=~count, name= "CRDGPAAPR") %>% 
+  layout(xaxis=list(title="Counties"), yaxis=list(title='Counts by Counties'), barmode="stack")
+fig_b
+```
+
+
+
+### Pivot Table by HS GPA (by tenths)
+
+```{r}
+library(rpivotTable)
+rpivotTable(HSGPAunder, aggregatorName = "Count",
+            rows = c("COLLEGE","TIER"),
+            
+            cols = c("codeHSGPA"),
+           
+            subtotals = T, rendererName = "Table With Subtotal")
+```
+
+### Data table
+
+```{r}
+library(DT)
+datatable(HSGPAunder, extensions = "Buttons",caption = "HS GPA under 3.5",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+```
+
+
+### Numbers of 2021 FTIC in HMCSE with HS GPA under 3.5 (by tenths) 
+
+```{r}
+HSGPAunder$TIER <- as.factor(HSGPAunder$TIER)
+fig_C <- HSGPAunder[HSGPAunder$COLLEGE=="HMCSE",] %>% 
+  group_by(codeHSGPA,PROGRAM_DESC) %>% 
+  summarise(count=n()) %>% na.omit() %>% 
+  plot_ly(x=~PROGRAM_DESC, y=~count,color =~ codeHSGPA, type="bar") %>% 
+  #add_trace(y=~count, name= "CRDGPAAPR") %>% 
+  layout(xaxis=list(title="PROGRAMS in HMCSE"), yaxis=list(title='Counts by HS GPA'), barmode="stack")
+fig_C
+```
+
+### Summary Table
+
+```{r}
+library(dplyr)
+summaryall <- HSGPAunder %>% group_by(COLLEGE,TIER,GENDER,codeHSGPA, HS_CORE_GPA) %>% dplyr::summarise(meanHSGPA=mean(HS_OFFER_GPA, na.rm=T), meanHSCoreGPA=mean(HS_CORE_GPA, na.rm=T), meanTransHrs=mean(TRANSFER_HOURS_EARNED,na.rm=T), Counts=n())
+
+library(DT)
+datatable(summaryall, extensions = "Buttons",caption = "Summary  HS GPA under 3.5",
+          filter = "top",
+          options = list(dom="Blfrtip",buttons=c("copy","csv","excel","pdf","print"), lengthMenu=list(c(10,25,50,-1), c(10,25,50,"All")),pageLength=25))
+```
+
+
+
+
+
